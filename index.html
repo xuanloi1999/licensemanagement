@@ -1,0 +1,138 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NovaLicense System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@400;500;600;700&family=Lexend+Deca:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: "#ec1938",
+                            50: "#fff1f3",
+                            100: "#ffe0e5",
+                            200: "#ffc5ce",
+                            300: "#ff9dab",
+                            400: "#ff657c",
+                            500: "#fe3553",
+                            600: "#ec1938",
+                            700: "#c70e29",
+                            800: "#a41026",
+                            900: "#871526",
+                            950: "#4a050f",
+                        },
+                        secondary: {
+                            DEFAULT: "#00c7cd",
+                            50: "#ebfffe",
+                            100: "#cefffd",
+                            200: "#a2fffe",
+                            300: "#63fdfd",
+                            400: "#1cf0f4",
+                            500: "#00c7cd",
+                            600: "#03a9b7",
+                            700: "#0a8694",
+                            800: "#126b78",
+                            900: "#145865",
+                            950: "#063b46",
+                        },
+                        success: {
+                            DEFAULT: "#1eb980",
+                            50: "#edfcf4",
+                            100: "#d4f7e4",
+                            200: "#aceece",
+                            300: "#77deb1",
+                            400: "#3fc891",
+                            500: "#1eb980",
+                            600: "#0f8c60",
+                            700: "#0c704f",
+                            800: "#0c5940",
+                            900: "#0b4937",
+                            950: "#05291f",
+                        },
+                        warning: {
+                            DEFAULT: "#ffbc3b",
+                            50: "#fff9eb",
+                            100: "#ffeec6",
+                            200: "#ffda88",
+                            300: "#ffbc3b",
+                            400: "#ffa920",
+                            500: "#f98507",
+                            600: "#dd5f02",
+                            700: "#b74006",
+                            800: "#94300c",
+                            900: "#7a290d",
+                            950: "#461302",
+                        },
+                        error: {
+                            DEFAULT: "#ff0051",
+                            50: "#ffeff2",
+                            100: "#ffe0e6",
+                            200: "#ffc6d4",
+                            300: "#ff97af",
+                            400: "#ff5d86",
+                            500: "#ff2462",
+                            600: "#ff0051",
+                            700: "#d70044",
+                            800: "#b40042",
+                            900: "#99023f",
+                            950: "#57001d",
+                        },
+                        background: {
+                            DEFAULT: "#15181d",
+                            darker: "#121212",
+                            light: "#ffffff",
+                            lightDarker: "#f8f9fa",
+                        }
+                    },
+                    fontFamily: {
+                        display: ['"Funnel Display"', "system-ui", "sans-serif"],
+                        body: ['"Lexend Deca"', "Arial", "sans-serif"],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-in-out',
+                        'float': 'float 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: 0, transform: 'translateY(-10px)' },
+                            '100%': { opacity: 1, transform: 'translateY(0)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Lexend Deca', sans-serif;
+            background-color: #15181d;
+            color: white;
+        }
+        h1, h2, h3, h4 {
+            font-family: 'Funnel Display', sans-serif;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "recharts": "https://esm.sh/recharts@^3.7.0"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>
