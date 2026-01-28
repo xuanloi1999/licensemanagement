@@ -7,107 +7,104 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { OrgDetail } from './pages/OrgDetail';
 import { AdminPlans } from './pages/AdminPlans';
 import { AdminLogs } from './pages/AdminLogs';
-import { OrgPortal } from './pages/OrgPortal';
-import { OrgUsage } from './pages/OrgUsage';
 import { MOCK_ORGS } from './constants';
 import { UserRole } from './types';
 
 const App: React.FC = () => {
-  const [userRole, setUserRole] = useState<UserRole | 'none'>('none');
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [activeView, setActiveView] = useState<string>('dashboard');
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleLogin = (role: UserRole) => {
-    setUserRole(role);
+    setIsLoggedIn(true);
     setActiveView('dashboard');
-    // For portal, we default to the first org
-    if (role === 'org_user') {
-      setSelectedOrgId(MOCK_ORGS[0].id);
-    }
+    setSelectedOrgId(null);
   };
 
   const handleLogout = () => {
-    setUserRole('none');
+    setIsLoggedIn(false);
     setSelectedOrgId(null);
     setActiveView('dashboard');
+    setIsSidebarOpen(false);
   };
 
-  if (userRole === 'none') {
+  if (!isLoggedIn) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
   const renderContent = () => {
-    // Admin Views
-    if (userRole === 'admin') {
-      if (activeView === 'org-detail' && selectedOrgId) {
-        const org = MOCK_ORGS.find(o => o.id === selectedOrgId);
-        return org ? <OrgDetail org={org} onBack={() => setActiveView('dashboard')} /> : null;
-      }
-
-      switch (activeView) {
-        case 'dashboard': // This acts as "Organizations" list for Admin
-          return <AdminDashboard onSelectOrg={(id) => { setSelectedOrgId(id); setActiveView('org-detail'); }} />;
-        case 'plans':
-          return <AdminPlans />;
-        case 'logs':
-          return <AdminLogs />;
-        default:
-          return <AdminDashboard onSelectOrg={(id) => { setSelectedOrgId(id); setActiveView('org-detail'); }} />;
-      }
+    if (activeView === 'org-detail' && selectedOrgId) {
+      const org = MOCK_ORGS.find(o => o.id === selectedOrgId);
+      return org ? (
+        <OrgDetail 
+          org={org} 
+          onBack={() => {
+            setActiveView('dashboard');
+            setSelectedOrgId(null);
+          }} 
+        />
+      ) : (
+        <div className="p-12 text-center text-neutral-500">Resource identifier mismatch. Returning to directory...</div>
+      );
     }
 
-    // Portal (Org User) Views
-    if (userRole === 'org_user') {
-      const org = MOCK_ORGS.find(o => o.id === selectedOrgId) || MOCK_ORGS[0];
-      
-      switch (activeView) {
-        case 'dashboard':
-          return <OrgPortal org={org} />;
-        case 'usage':
-          return <OrgUsage org={org} />;
-        case 'activation':
-          return <OrgPortal org={org} focusActivation={true} />;
-        default:
-          return <OrgPortal org={org} />;
-      }
+    switch (activeView) {
+      case 'dashboard':
+        return (
+          <AdminDashboard 
+            onSelectOrg={(id) => { 
+              setSelectedOrgId(id); 
+              setActiveView('org-detail'); 
+            }} 
+          />
+        );
+      case 'plans':
+        return <AdminPlans />;
+      case 'logs':
+        return <AdminLogs />;
+      default:
+        return <AdminDashboard onSelectOrg={(id) => { setSelectedOrgId(id); setActiveView('org-detail'); }} />;
     }
-
-    return null;
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-white font-body selection:bg-primary/30">
+    <div className="h-screen w-screen flex flex-col bg-background text-white font-body selection:bg-primary/30 overflow-hidden">
       <Navbar 
-        role={userRole === 'admin' ? 'admin' : 'org'} 
-        onSwitchRole={(r) => { 
-          const mappedRole = r === 'admin' ? 'admin' : 'org_user';
-          setUserRole(mappedRole);
-          if (mappedRole === 'org_user') setSelectedOrgId(MOCK_ORGS[0].id);
-          setActiveView('dashboard');
-        }} 
         onLogout={handleLogout} 
+        onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)}
       />
       
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         <Sidebar 
-          role={userRole} 
           activeView={activeView} 
-          onNavigate={setActiveView} 
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          onNavigate={(view) => {
+            setActiveView(view);
+            setSelectedOrgId(null);
+          }} 
         />
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 custom-scrollbar bg-background-darker/20">
           <div className="max-w-7xl mx-auto">
             {renderContent()}
           </div>
         </main>
       </div>
 
-      <footer className="py-3 px-6 text-center text-neutral-600 text-[10px] border-t border-neutral-900 bg-background-darker/50 flex items-center justify-between">
-        <p>© 2025 NovaLicense Enterprise v2.5.1</p>
-        <div className="flex gap-6">
-          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span> All Systems Operational</span>
-          <a href="#" className="hover:text-primary transition-colors">Privacy Policy</a>
-          <a href="#" className="hover:text-primary transition-colors">Terms of Service</a>
+      <footer className="hidden sm:flex py-2.5 px-8 text-[9px] uppercase font-bold tracking-[0.2em] border-t border-neutral-900 bg-background-darker items-center justify-between text-neutral-600 shrink-0">
+        <div className="flex items-center gap-4">
+          <p>© 2025 HACKGRID SYSTEMS</p>
+          <div className="hidden md:block w-px h-3 bg-neutral-800"></div>
+          <p className="hidden md:block">STABLE BUILD 3.0.1</p>
+        </div>
+        <div className="flex gap-4 md:gap-8">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_8px_rgba(30,185,128,0.6)]"></span> 
+            <span className="hidden xs:inline">ENCRYPTED LINK ACTIVE</span>
+          </div>
+          <a href="#" className="hover:text-primary transition-colors">SUPPORT NODE</a>
         </div>
       </footer>
     </div>

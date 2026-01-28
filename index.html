@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NovaLicense System</title>
+    <title>Hackgrid | Enterprise License Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@400;500;600;700&family=Lexend+Deca:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script>
@@ -116,9 +116,23 @@
             font-family: 'Lexend Deca', sans-serif;
             background-color: #15181d;
             color: white;
+            overflow: hidden;
         }
         h1, h2, h3, h4 {
             font-family: 'Funnel Display', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #252527;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #3c3c3d;
         }
     </style>
 <script type="importmap">
@@ -127,12 +141,13 @@
     "react/": "https://esm.sh/react@^19.2.4/",
     "react": "https://esm.sh/react@^19.2.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "recharts": "https://esm.sh/recharts@^3.7.0"
+    "recharts": "https://esm.sh/recharts@^3.7.0",
+    "react-hook-form": "https://esm.sh/react-hook-form@^7.54.2"
   }
 }
 </script>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root" class="h-screen w-screen overflow-hidden"></div>
 </body>
 </html>

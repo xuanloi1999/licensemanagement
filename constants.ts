@@ -1,23 +1,52 @@
 
 import { Organization, Plan, AuditLog } from './types';
 
+// Master list of all available system capabilities for comparison
+export const ALL_CAPABILITY_KEYS = [
+  { key: 'access_control', label: 'Access Control' },
+  { key: 'cyber_training', label: 'Cyber Training' },
+  { key: 'live_battle', label: 'Live Battle' },
+  { key: 'network_diagrams', label: 'Network Diagrams' },
+  { key: 'traffic_generator', label: 'Traffic Generator' },
+  { key: 'host_management', label: 'Host Management' },
+  { key: 'incident_history', label: 'Incident History' },
+  { key: 'api_sandbox', label: 'API Backend Sandbox' },
+  { key: 'sso_oidc', label: 'Identity SSO (OIDC)' },
+  { key: 'custom_branding', label: 'Custom Branding' },
+];
+
 export const PLANS: Plan[] = [
   {
     id: 'free',
     name: 'Free Starter',
-    features: ['Single Project', 'Basic Labs', 'Community Support'],
+    description: 'Entry-level access for small development teams and internal experiments.',
+    features: ['Single Project Context', 'Standard Labs', 'Community Support'],
+    featureFlags: ALL_CAPABILITY_KEYS.map(cap => ({
+      ...cap,
+      enabled: ['access_control', 'network_diagrams'].includes(cap.key)
+    })),
     defaultQuotas: { seats: 5, labs: 2, concurrency: 1 }
   },
   {
     id: 'pro',
     name: 'Professional',
-    features: ['Unlimited Projects', 'Advanced Labs', 'Priority Support', 'API Access'],
+    description: 'Scaled resource allocation for growing organizations requiring priority infrastructure.',
+    features: ['Unlimited Projects', 'Advanced Labs', 'Priority Support', 'Full API Access'],
+    featureFlags: ALL_CAPABILITY_KEYS.map(cap => ({
+      ...cap,
+      enabled: ['access_control', 'cyber_training', 'network_diagrams', 'traffic_generator', 'api_sandbox', 'sso_oidc'].includes(cap.key)
+    })),
     defaultQuotas: { seats: 50, labs: 20, concurrency: 10 }
   },
   {
     id: 'enterprise',
     name: 'Enterprise',
-    features: ['Custom Labs', 'Dedicated Support', 'SSO Login', 'Advanced Analytics'],
+    description: 'Mission-critical tier with dedicated node support and absolute resource dominance.',
+    features: ['Custom Labs Architecture', 'Dedicated Support Node', 'Custom Branding (Full)', 'Advanced Audit Export'],
+    featureFlags: ALL_CAPABILITY_KEYS.map(cap => ({
+      ...cap,
+      enabled: true // All features unlocked
+    })),
     defaultQuotas: { seats: 500, labs: 100, concurrency: 50 }
   }
 ];
@@ -26,7 +55,7 @@ export const MOCK_ORGS: Organization[] = [
   {
     id: 'ORG-001',
     name: 'Acme Corp',
-    licenseKey: 'ACME-7722-XXXX-9900',
+    licenseKey: 'ACME-7722-A1B2-9900',
     status: 'active',
     planId: 'enterprise',
     expiryDate: '2025-12-31',
@@ -39,7 +68,7 @@ export const MOCK_ORGS: Organization[] = [
   {
     id: 'ORG-002',
     name: 'Globex IT',
-    licenseKey: 'GLOB-1234-XXXX-5678',
+    licenseKey: 'GLOB-1234-C3D4-5678',
     status: 'expired',
     planId: 'pro',
     expiryDate: '2024-01-15',
@@ -52,7 +81,7 @@ export const MOCK_ORGS: Organization[] = [
   {
     id: 'ORG-003',
     name: 'Umbrella Tech',
-    licenseKey: 'UMBR-9988-XXXX-1122',
+    licenseKey: 'UMBR-9988-E5F6-1122',
     status: 'suspended',
     planId: 'enterprise',
     expiryDate: '2026-06-30',
@@ -65,7 +94,7 @@ export const MOCK_ORGS: Organization[] = [
   {
     id: 'ORG-004',
     name: 'Stark Industries',
-    licenseKey: 'IRON-4444-XXXX-3333',
+    licenseKey: 'IRON-4444-G7H8-3333',
     status: 'active',
     planId: 'pro',
     expiryDate: '2025-05-20',
