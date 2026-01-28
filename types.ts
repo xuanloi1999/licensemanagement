@@ -7,10 +7,18 @@ export interface Quotas {
   concurrency: { current: number; total: number };
 }
 
+export interface FeatureFlag {
+  key: string;
+  label: string;
+  enabled: boolean;
+}
+
 export interface Plan {
   id: string;
   name: string;
-  features: string[];
+  description: string;
+  features: string[]; // High-level marketing features
+  featureFlags: FeatureFlag[]; // Technical capability flags
   defaultQuotas: {
     seats: number;
     labs: number;
@@ -37,4 +45,4 @@ export interface AuditLog {
   details: string;
 }
 
-export type UserRole = 'admin' | 'org_user';
+export type UserRole = 'admin';
