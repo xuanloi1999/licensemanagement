@@ -121,20 +121,6 @@ export const AdminPlans: React.FC = () => {
           </Card>
         ))}
       </div>
-
-      <div className="p-10 bg-primary/5 rounded-[3rem] border border-primary/20 flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl">
-         <div className="flex items-center gap-8">
-            <div className="w-20 h-20 bg-primary rounded-[2rem] flex items-center justify-center text-white shadow-xl shadow-primary/20 shrink-0">
-               <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-               </svg>
-            </div>
-            <div>
-               <h4 className="text-2xl font-bold font-display text-white mb-2">Immutable Protocol Active</h4>
-               <p className="text-sm text-neutral-400 max-w-lg leading-relaxed font-medium">Any changes to these blueprints will be logged in the global ledger. Active organizations on these tiers will be notified of grid reconfiguration windows.</p>
-            </div>
-         </div>
-      </div>
     </div>
   );
 };

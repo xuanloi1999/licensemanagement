@@ -18,8 +18,6 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
   // Renewal Form State
   const [renewDate, setRenewDate] = useState('2026-12-31');
   const [selectedPlanId, setSelectedPlanId] = useState(org.planId);
-  const [overrideSeats, setOverrideSeats] = useState(org.quotas.seats.total.toString());
-  const [overrideLabs, setOverrideLabs] = useState(org.quotas.labs.total.toString());
 
   const currentPlan = PLANS.find(p => p.id === org.planId) || PLANS[0];
   const newPlan = PLANS.find(p => p.id === selectedPlanId) || currentPlan;
@@ -138,7 +136,6 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
               </span>
               Current Resource Utilization
             </h3>
-            <Button variant="ghost" onClick={() => setShowRenewModal(true)} className="!text-[9px] md:!text-[10px] font-bold text-neutral-500 hover:text-white border border-neutral-800 px-5 md:px-6 py-2 md:py-3 rounded-xl transition-all">Adjust Quotas</Button>
           </div>
           <div className="grid md:grid-cols-3 gap-6 md:gap-8">
             <Progress label="Assigned Seats" value={org.quotas.seats.current} total={org.quotas.seats.total} />
@@ -238,29 +235,6 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
                   ))}
                 </div>
               </section>
-
-              <section className="space-y-4">
-                <div className="flex items-center gap-3 border-b border-neutral-800 pb-2">
-                  <div className="w-1 h-4 bg-process rounded-full"></div>
-                  <h4 className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest">Quota Overrides</h4>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input 
-                    label="Seat Limit" 
-                    type="number" 
-                    value={overrideSeats} 
-                    onChange={e => setOverrideSeats(e.target.value)}
-                    className="!bg-neutral-950/40"
-                  />
-                  <Input 
-                    label="Lab Limit" 
-                    type="number" 
-                    value={overrideLabs} 
-                    onChange={e => setOverrideLabs(e.target.value)}
-                    className="!bg-neutral-950/40"
-                  />
-                </div>
-              </section>
             </div>
 
             {/* Preview Column */}
@@ -291,20 +265,20 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
                     </div>
                   </div>
 
-                  {/* Resource Delta */}
+                  {/* Feature Delta Summary */}
                   <div className="space-y-4 pt-4 border-t border-neutral-900">
-                    <p className="text-[9px] text-neutral-600 uppercase font-bold tracking-widest">Resource Delta</p>
+                    <p className="text-[9px] text-neutral-600 uppercase font-bold tracking-widest">Implicit Quota Update</p>
                     <div className="grid gap-3">
                       <div className="flex justify-between items-center bg-neutral-900/40 p-3 rounded-xl border border-neutral-800/50">
                         <span className="text-[10px] font-bold text-neutral-500 uppercase">Seats</span>
-                        <span className={`text-[10px] font-bold ${Number(overrideSeats) > org.quotas.seats.total ? 'text-success' : Number(overrideSeats) < org.quotas.seats.total ? 'text-error' : 'text-neutral-400'}`}>
-                          {org.quotas.seats.total} → {overrideSeats}
+                        <span className="text-[10px] font-bold text-white">
+                          {newPlan.defaultQuotas.seats} (Default)
                         </span>
                       </div>
                       <div className="flex justify-between items-center bg-neutral-900/40 p-3 rounded-xl border border-neutral-800/50">
                         <span className="text-[10px] font-bold text-neutral-500 uppercase">Labs</span>
-                        <span className={`text-[10px] font-bold ${Number(overrideLabs) > org.quotas.labs.total ? 'text-secondary' : Number(overrideLabs) < org.quotas.labs.total ? 'text-error' : 'text-neutral-400'}`}>
-                          {org.quotas.labs.total} → {overrideLabs}
+                        <span className="text-[10px] font-bold text-white">
+                          {newPlan.defaultQuotas.labs} (Default)
                         </span>
                       </div>
                     </div>
