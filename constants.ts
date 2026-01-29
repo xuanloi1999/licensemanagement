@@ -121,7 +121,7 @@ export const MOCK_LOGS: AuditLog[] = [
     action: 'Auto Suspend',
     targetOrg: 'Umbrella Tech',
     timestamp: '2024-05-14 00:01:12',
-    details: 'Billing failure'
+    details: 'Billing failure - Stripe API error 402'
   },
   {
     id: 'LOG-3',
@@ -129,6 +129,78 @@ export const MOCK_LOGS: AuditLog[] = [
     action: 'Upgrade Plan',
     targetOrg: 'Globex IT',
     timestamp: '2024-05-10 14:20:00',
-    details: 'Upgraded from Free to Pro'
+    details: 'Upgraded from Free to Pro SLA profile'
+  },
+  {
+    id: 'LOG-4',
+    actor: 'Admin John',
+    action: 'Quota Adjustment',
+    targetOrg: 'Acme Corp',
+    timestamp: '2024-04-20 09:15:33',
+    details: 'Incremented seat count by 50 to accommodate new R&D hiring wave.'
+  },
+  {
+    id: 'LOG-5',
+    actor: 'System',
+    action: 'License Provision',
+    targetOrg: 'Stark Industries',
+    timestamp: '2024-04-12 16:44:02',
+    details: 'Initial deployment of Professional grid node for IRON-4444-G7H8-3333'
+  },
+  {
+    id: 'LOG-6',
+    actor: 'Security Bot',
+    action: 'Integrity Check',
+    targetOrg: 'Acme Corp',
+    timestamp: '2024-04-01 03:00:00',
+    details: 'Full grid node integrity audit completed. 0 vulnerabilities found.'
+  },
+  {
+    id: 'LOG-7',
+    actor: 'Admin Sarah',
+    action: 'Key Regeneration',
+    targetOrg: 'Umbrella Tech',
+    timestamp: '2024-03-15 11:20:10',
+    details: 'Regenerated AES-256 license key following internal security breach report.'
+  },
+  {
+    id: 'LOG-8',
+    actor: 'Admin John',
+    action: 'SLA Modification',
+    targetOrg: 'Acme Corp',
+    timestamp: '2024-02-28 13:05:55',
+    details: 'Enabled Traffic Generator and Cyber Training capability flags.'
+  },
+  {
+    id: 'LOG-9',
+    actor: 'Admin Sarah',
+    action: 'Manual Override',
+    targetOrg: 'Globex IT',
+    timestamp: '2024-02-15 17:50:00',
+    details: 'Forced license activation bypass for emergency maintenance window.'
+  },
+  {
+    id: 'LOG-10',
+    actor: 'System',
+    action: 'Quota Warning',
+    targetOrg: 'Acme Corp',
+    timestamp: '2024-02-01 08:30:12',
+    details: 'Utilization threshold reached (85% seats). Notification dispatched to authority email.'
+  },
+  {
+    id: 'LOG-11',
+    actor: 'Admin John',
+    action: 'Revoke Access',
+    targetOrg: 'Globex IT',
+    timestamp: '2024-01-20 15:10:00',
+    details: 'Temporary revocation of grid access due to suspicious outbound traffic patterns.'
+  },
+  {
+    id: 'LOG-12',
+    actor: 'Admin Sarah',
+    action: 'Restore Access',
+    targetOrg: 'Globex IT',
+    timestamp: '2024-01-21 09:00:00',
+    details: 'Access restored after verification of legitimate testing procedures.'
   }
 ];

@@ -236,6 +236,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectOrg }) =
       {/* REFINED Create Org Modal with React Hook Form */}
       <Modal
         isOpen={showCreateModal}
+        size="4xl"
         onClose={() => {
           setShowCreateModal(false);
           reset();

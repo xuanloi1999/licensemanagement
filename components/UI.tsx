@@ -88,12 +88,21 @@ export const Modal: React.FC<{
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-}> = ({ isOpen, onClose, title, children, footer }) => {
+  size?: 'md' | 'lg' | 'xl' | '4xl' | '5xl';
+}> = ({ isOpen, onClose, title, children, footer, size = '4xl' }) => {
   if (!isOpen) return null;
+
+  const sizeClasses = {
+    md: 'max-w-md',
+    lg: 'max-w-lg',
+    xl: 'max-w-xl',
+    '4xl': 'max-w-4xl',
+    '5xl': 'max-w-5xl',
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-fade-in">
-      <div className="bg-background-darker border border-neutral-800 rounded-[2.5rem] w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] shadow-primary/10 border-white/5 relative">
+      <div className={`bg-background-darker border border-neutral-800 rounded-[2.5rem] w-full ${sizeClasses[size]} shadow-2xl overflow-hidden flex flex-col max-h-[95vh] shadow-primary/10 border-white/5 relative`}>
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
         <div className="flex items-center justify-between p-8 border-b border-neutral-800/60 bg-neutral-900/30">
           <h2 className="text-2xl font-display font-bold text-white tracking-tight uppercase italic">{title}</h2>
