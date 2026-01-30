@@ -1,73 +1,86 @@
 import api from "../axios";
 
+export interface LoginPayload {
+  username: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  data: {
+    access_token: string;
+    user?: {
+      id: string;
+      username: string;
+      role: string;
+    };
+  };
+}
+
+export interface ChangePasswordPayload {
+  current_password: string;
+  new_password: string;
+}
+
 class AuthService {
-  apiPath = "";
-  userKey = "user";
-  constructor() {
-    if (true) {
-      this.apiPath = "/admin";
-    }
+  private readonly basePath = "/api/v1/auth";
+  private readonly userKey = "user";
+  private readonly tokenKey = "access_token";
+
+  /**
+   * Login with username and password
+   */
+  login(payload: LoginPayload) {
+    return api.post<LoginResponse>(`${this.basePath}/login`, payload);
   }
-  login(payload) {
-    return api.post(this.apiPath + "/auth/login", payload);
+
+  /**
+   * Change user password
+   */
+  changePassword(payload: ChangePasswordPayload) {
+    return api.put(`${this.basePath}/password`, payload);
   }
-  setUser(user) {
+
+  /**
+   * Store user data in localStorage
+   */
+  setUser(user: LoginResponse["data"]) {
     localStorage.setItem(this.userKey, JSON.stringify(user));
+    if (user.access_token) {
+      localStorage.setItem(this.tokenKey, user.access_token);
+    }
     return true;
   }
+
+  /**
+   * Get stored user data
+   */
   getUser() {
-    return JSON.parse(localStorage.getItem(this.userKey));
+    const user = localStorage.getItem(this.userKey);
+    return user ? JSON.parse(user) : null;
   }
-  getAccessToken() {
-    const user = this.getUser();
-    return user ? user.access_token : "";
+
+  /**
+   * Get access token
+   */
+  getAccessToken(): string {
+    return localStorage.getItem(this.tokenKey) || "";
   }
-  getUserId() {
-    const user = this.getUser();
-    return user ? user.id : "";
+
+  /**
+   * Check if user is authenticated
+   */
+  isAuthenticated(): boolean {
+    return !!this.getAccessToken();
   }
-  getPermission() {
-    const user = this.getUser();
-    return user ? user.permission : [];
-  }
-  getVendorId() {
-    const user = this.getUser();
-    return user ? user.vendor_id : [];
-  }
-  check() {
-    return !!this.getUser();
-  }
-  clearUser() {
-    localStorage.removeItem(this.userKey);
-  }
+
+  /**
+   * Clear user session
+   */
   logout() {
-    api
-      .post(this.apiPath + "/auth/logout")
-      .then(() => {
-        localStorage.removeItem(this.userKey);
-        window.location.href =
-          "/login?callback_url=" + encodeURI(window.location.href);
-        // window.location.assign("/login");
-      })
-      .finally(() => {
-        localStorage.removeItem(this.userKey);
-        window.location.href =
-          "/login?callback_url=" + encodeURI(window.location.href);
-        // window.location.assign("/login");
-      });
-    return true;
-  }
-  changePassword(payload) {
-    return api.post(this.apiPath + "/auth/change-pass", payload);
-  }
-  sendResetPasswordLink(payload) {
-    return api.post(this.apiPath + "/auth/send-reset-password", payload);
-  }
-  resetPassword(payload) {
-    return api.put(this.apiPath + "/auth/reset-password", payload);
-  }
-  updateProfile(data) {
-    return api.put(this.apiPath + "/auth/update-profile", data);
+    localStorage.removeItem(this.userKey);
+    localStorage.removeItem(this.tokenKey);
+    window.location.href = "/login";
   }
 }
+
 export default new AuthService();

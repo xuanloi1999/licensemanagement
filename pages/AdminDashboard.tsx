@@ -1,8 +1,14 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { Card, Input, Button, Badge, Modal } from "../components/UI";
-import { MOCK_ORGS, PLANS } from "../constants";
-import { LicenseStatus } from "../types";
+import { PLANS } from "../constants";
+import { LicenseStatus, Organization } from "../types";
+import OrganizationService, {
+  CreateOrganizationPayload,
+} from "../services/OrganizationService";
+import SubscriptionPlanService, {
+  SubscriptionPlan,
+} from "../services/SubscriptionPlanService";
 
 interface AdminDashboardProps {
   onSelectOrg: (id: string) => void;
@@ -18,14 +24,27 @@ interface NewOrgFormData {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSelectOrg,
 }) => {
+  // Data state
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<
+    SubscriptionPlan[]
+  >([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Filter state
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<LicenseStatus | "all">(
     "all"
   );
   const [planFilter, setPlanFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [showCreateModal, setShowCreateModal] = useState(false);
 
+  // Modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  // Form setup
   const {
     register,
     handleSubmit,
@@ -44,10 +63,72 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const selectedPlanId = watch("planId");
   const selectedValidity = watch("validity");
-  const selectedPlan = PLANS.find((p) => p.id === selectedPlanId) || PLANS[0];
 
+  // Use API plans if available, fallback to constants
+  const availablePlans =
+    subscriptionPlans.length > 0
+      ? subscriptionPlans.map((p) => ({
+          id: String(p.id),
+          name: p.name,
+          description: `${p.quota.users} users, ${p.quota.storage_gb}GB storage`,
+          defaultQuotas: {
+            seats: p.quota.users,
+            labs: Math.floor(p.quota.users / 2),
+            concurrency: Math.ceil(p.quota.users / 5),
+          },
+        }))
+      : PLANS;
+
+  const selectedPlan =
+    availablePlans.find((p) => p.id === selectedPlanId) || availablePlans[0];
+
+  // Fetch data on mount
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const [orgsResponse, plansResponse] = await Promise.all([
+        OrganizationService.list(),
+        SubscriptionPlanService.list(),
+      ]);
+
+      // Transform API response to match Organization type
+      const orgs: Organization[] = orgsResponse.data.data.map((org: any) => ({
+        id: org.organization_id || org.id,
+        name: org.organization_name || org.name,
+        status: org.status || "active",
+        planId: org.subscription_plan || "pro",
+        licenseKey: org.license_key || "",
+        expiryDate: org.expiry_date || "2025-12-31",
+        quotas: org.quotas || {
+          seats: { current: 0, total: 50 },
+          labs: { current: 0, total: 10 },
+          concurrency: { current: 0, total: 5 },
+        },
+      }));
+
+      setOrganizations(orgs);
+      setSubscriptionPlans(plansResponse.data.data || []);
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to load data. Please try again.";
+      setError(errorMessage);
+      console.error("Failed to fetch data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Filtered and paginated data
   const filteredOrgs = useMemo(() => {
-    return MOCK_ORGS.filter((org) => {
+    return organizations.filter((org) => {
       const matchesSearch =
         org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         org.id.toLowerCase().includes(searchTerm.toLowerCase());
@@ -56,7 +137,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const matchesPlan = planFilter === "all" || org.planId === planFilter;
       return matchesSearch && matchesStatus && matchesPlan;
     });
-  }, [searchTerm, statusFilter, planFilter]);
+  }, [organizations, searchTerm, statusFilter, planFilter]);
 
   const itemsPerPage = 6;
   const totalPages = Math.ceil(filteredOrgs.length / itemsPerPage);
@@ -65,18 +146,116 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     currentPage * itemsPerPage
   );
 
+  // Create organization handler
   const onSubmit = async (data: NewOrgFormData) => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    alert(
-      `Success: Organization "${data.name}" initialized. AES License Key generated and sent to ${data.email}.`
-    );
+    setCreateError(null);
+
+    try {
+      const payload: CreateOrganizationPayload = {
+        organization_id: `org-${Date.now()}`, // Generate unique ID
+        organization_name: data.name,
+        subscription_plan: data.planId,
+      };
+
+      await OrganizationService.create(payload);
+
+      // Refresh data
+      await fetchData();
+
+      setShowCreateModal(false);
+      reset();
+      alert(
+        `Success: Organization "${data.name}" initialized. License generated.`
+      );
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to create organization.";
+
+      if (err.response?.status === 422) {
+        // Handle validation errors
+        const serverErrors = err.response?.data?.errors || {};
+        if (serverErrors.organization_name) {
+          setCreateError(serverErrors.organization_name[0]);
+        } else if (serverErrors.organization_id) {
+          setCreateError(serverErrors.organization_id[0]);
+        } else {
+          setCreateError(errorMessage);
+        }
+      } else {
+        setCreateError(errorMessage);
+      }
+    }
+  };
+
+  // Modal close handler
+  const handleCloseModal = () => {
     setShowCreateModal(false);
+    setCreateError(null);
     reset();
   };
 
+  // Reset filters
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setPlanFilter("all");
+    setCurrentPage(1);
+  };
+
+  // Retry fetch
+  const handleRetry = () => {
+    fetchData();
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-neutral-800 border-t-primary rounded-full animate-spin mx-auto" />
+          <p className="text-neutral-500 text-sm font-medium">
+            Loading organizations...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error && organizations.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4 max-w-md">
+          <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto">
+            <svg
+              className="w-8 h-8 text-red-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <h3 className="text-lg font-bold text-white">Failed to load data</h3>
+          <p className="text-neutral-500 text-sm">{error}</p>
+          <Button onClick={handleRetry} className="mt-4">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-bold font-display tracking-tight text-white">
@@ -109,6 +288,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </Button>
       </div>
 
+      {/* Error Banner (non-blocking) */}
+      {error && organizations.length > 0 && (
+        <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <svg
+                className="w-5 h-5 text-yellow-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <span className="text-sm text-yellow-400">
+                Some data may be outdated. {error}
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={handleRetry}
+              className="!py-1.5 !px-3 !text-[10px]"
+            >
+              Refresh
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
       <Card className="p-6 flex flex-wrap gap-5 items-end bg-background-darker/40 backdrop-blur-md border-neutral-800 rounded-3xl shadow-xl">
         <div className="flex-1 min-w-[280px]">
           <Input
@@ -130,7 +343,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             className="w-full bg-neutral-950/40 border border-neutral-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-primary transition-all font-bold appearance-none cursor-pointer"
             value={statusFilter}
             onChange={(e) => {
-              setStatusFilter(e.target.value as any);
+              setStatusFilter(e.target.value as LicenseStatus | "all");
               setCurrentPage(1);
             }}
           >
@@ -154,7 +367,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             }}
           >
             <option value="all">All Tiers</option>
-            {PLANS.map((p) => (
+            {availablePlans.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name.toUpperCase()}
               </option>
@@ -163,17 +376,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
         <Button
           variant="ghost"
-          onClick={() => {
-            setSearchTerm("");
-            setStatusFilter("all");
-            setPlanFilter("all");
-          }}
+          onClick={handleResetFilters}
           className="!py-3 font-bold text-[10px] tracking-widest uppercase hover:text-white border border-transparent hover:border-neutral-800 px-6 rounded-xl transition-all"
         >
           Reset
         </Button>
       </Card>
 
+      {/* Organization List */}
       <div className="grid gap-4">
         {paginatedOrgs.map((org) => (
           <Card
@@ -210,7 +420,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         Plan
                       </span>
                       <span className="text-[11px] font-bold text-secondary uppercase">
-                        {PLANS.find((p) => p.id === org.planId)?.name}
+                        {availablePlans.find((p) => p.id === org.planId)
+                          ?.name || org.planId}
                       </span>
                     </div>
                     <div className="flex flex-col">
@@ -292,6 +503,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </Card>
         ))}
 
+        {/* Empty State */}
         {filteredOrgs.length === 0 && (
           <div className="py-24 text-center flex flex-col items-center bg-background-darker/20 rounded-3xl border border-dashed border-neutral-800 shadow-inner">
             <div className="w-16 h-16 rounded-2xl bg-neutral-900/50 flex items-center justify-center mb-6 shadow-2xl border border-neutral-800">
@@ -319,6 +531,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
       </div>
 
+      {/* Pagination */}
       {filteredOrgs.length > 0 && (
         <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-neutral-600 pt-8 border-t border-neutral-900/50">
           <p>
@@ -355,7 +568,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* REFINED Create Org Modal with React Hook Form */}
+      {/* Create Organization Modal */}
       <Modal
         isOpen={showCreateModal}
         size="4xl"
@@ -369,10 +582,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <Button
               variant="ghost"
               className="!text-[10px] font-bold uppercase tracking-widest px-6"
-              onClick={() => {
-                setShowCreateModal(false);
-                reset();
-              }}
+              onClick={handleCloseModal}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
@@ -393,6 +604,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           onSubmit={handleSubmit(onSubmit)}
           className="space-y-10 max-w-4xl mx-auto"
         >
+          {/* Server Error */}
+          {createError && (
+            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+              <div className="flex items-center gap-3">
+                <svg
+                  className="w-5 h-5 text-red-500 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span className="text-sm text-red-400">{createError}</span>
+              </div>
+            </div>
+          )}
+
           {/* Section 1: Entity Identity */}
           <div className="space-y-6">
             <div className="flex items-center gap-3 border-b border-neutral-800 pb-3">
@@ -402,33 +635,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </h4>
             </div>
             <div className="grid md:grid-cols-2 gap-8">
-              <Input
-                label="Legal Organization Name"
-                placeholder="e.g. Weyland-Yutani Corp"
-                error={errors.name?.message}
-                {...register("name", {
-                  required: "Organization name is required",
-                  minLength: {
-                    value: 3,
-                    message: "Minimum 3 characters required",
-                  },
-                })}
-                className="!bg-neutral-950/40"
-              />
-              <Input
-                label="Primary Authority Email"
-                placeholder="admin@entity.com"
-                type="email"
-                error={errors.email?.message}
-                {...register("email", {
-                  required: "Email is required",
-                  pattern: {
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: "Invalid email address",
-                  },
-                })}
-                className="!bg-neutral-950/40"
-              />
+              <div>
+                <Input
+                  label="Legal Organization Name"
+                  placeholder="e.g. Weyland-Yutani Corp"
+                  {...register("name", {
+                    required: "Organization name is required",
+                    minLength: {
+                      value: 3,
+                      message: "Minimum 3 characters required",
+                    },
+                  })}
+                  className="!bg-neutral-950/40"
+                />
+                {errors.name && (
+                  <p className="mt-2 text-xs text-red-400">
+                    {errors.name.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Input
+                  label="Primary Authority Email"
+                  placeholder="admin@entity.com"
+                  type="email"
+                  autoComplete="email"
+                  {...register("email", {
+                    required: "Email is required",
+                    pattern: {
+                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                      message: "Invalid email address",
+                    },
+                  })}
+                  className="!bg-neutral-950/40"
+                />
+                {errors.email && (
+                  <p className="mt-2 text-xs text-red-400">
+                    {errors.email.message}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -441,7 +687,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </h4>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {PLANS.map((p) => (
+              {availablePlans.map((p) => (
                 <button
                   key={p.id}
                   type="button"
@@ -541,7 +787,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <Input
                   label="Initial Validity (Months)"
                   type="number"
-                  error={errors.validity?.message}
                   {...register("validity", {
                     required: "Validity is required",
                     min: { value: 1, message: "Minimum 1 month" },
@@ -549,6 +794,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   })}
                   className="!bg-neutral-950/40"
                 />
+                {errors.validity && (
+                  <p className="mt-2 text-xs text-red-400">
+                    {errors.validity.message}
+                  </p>
+                )}
               </div>
               <div className="flex flex-wrap gap-3 pt-6">
                 {["6", "12", "24", "36"].map((v) => (
