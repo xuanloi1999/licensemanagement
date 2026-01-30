@@ -1,49 +1,176 @@
 import React, { useState } from "react";
+import { useForm, Controller } from "react-hook-form";
 import { Card, Button, Badge, Progress, Modal, Input } from "../components/UI";
 import { Organization, Plan } from "../types";
 import { PLANS, MOCK_LOGS } from "../constants";
+import OrganizationService from "../services/OrganizationService";
+import SubscriptionPlanService from "../services/SubscriptionPlanService";
 
 interface OrgDetailProps {
   org: Organization;
   onBack: () => void;
+  onUpdate?: (updatedOrg: Organization) => void;
 }
 
-export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
+interface RenewalFormData {
+  expiryDate: string;
+  planId: string;
+}
+
+export const OrgDetail: React.FC<OrgDetailProps> = ({
+  org,
+  onBack,
+  onUpdate,
+}) => {
   const [showRenewModal, setShowRenewModal] = useState(false);
   const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showKey, setShowKey] = useState(false);
-
-  // Renewal Form State
-  const [renewDate, setRenewDate] = useState("2026-12-31");
-  const [selectedPlanId, setSelectedPlanId] = useState(org.planId);
-  const [overrideSeats, setOverrideSeats] = useState(
-    org.quotas.seats.total.toString()
-  );
-  const [overrideLabs, setOverrideLabs] = useState(
-    org.quotas.labs.total.toString()
-  );
+  const [isRevoking, setIsRevoking] = useState(false);
+  const [isRegeneratingKey, setIsRegeneratingKey] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const currentPlan = PLANS.find((p) => p.id === org.planId) || PLANS[0];
-  const newPlan = PLANS.find((p) => p.id === selectedPlanId) || currentPlan;
   const orgLogs = MOCK_LOGS.filter((log) => log.targetOrg === org.name);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(org.licenseKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // React Hook Form for renewal modal
+  const {
+    control,
+    watch,
+    handleSubmit,
+    reset,
+    formState: { isSubmitting, errors },
+  } = useForm<RenewalFormData>({
+    defaultValues: {
+      expiryDate: org.expiryDate || "2026-12-31",
+      planId: org.planId,
+    },
+  });
+
+  const selectedPlanId = watch("planId");
+  const renewDate = watch("expiryDate");
+  const newPlan = PLANS.find((p) => p.id === selectedPlanId) || currentPlan;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(org.licenseKey);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy:", error);
+    }
   };
 
-  const performAction = (actionName: string) => {
-    alert(
-      `AUDIT SUCCESS: ${actionName} applied to ${org.name}. Lifecycle state updated.`
-    );
+  const handleRegenerateLicenseKey = async () => {
+    setIsRegeneratingKey(true);
+    setServerError(null);
+
+    try {
+      const response = await OrganizationService.regenerateLicenseKey(org.id);
+      const updatedOrg = response.data.data;
+
+      if (onUpdate) {
+        onUpdate({ ...org, licenseKey: updatedOrg.license_key });
+      }
+
+      alert("License key regenerated successfully.");
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to regenerate license key.";
+      setServerError(errorMessage);
+    } finally {
+      setIsRegeneratingKey(false);
+    }
+  };
+
+  const onRenewalSubmit = async (data: RenewalFormData) => {
+    setServerError(null);
+
+    try {
+      // Update subscription plan if changed
+      if (data.planId !== org.planId) {
+        await SubscriptionPlanService.update(data.planId, {
+          name: newPlan.name,
+        });
+      }
+
+      // Here you would call your API to update the organization
+      // For now, we'll simulate the update
+      // await OrganizationService.update(org.id, {
+      //   subscription_plan: data.planId,
+      //   expiry_date: data.expiryDate,
+      // });
+
+      if (onUpdate) {
+        onUpdate({
+          ...org,
+          planId: data.planId,
+          expiryDate: data.expiryDate,
+        });
+      }
+
+      setShowRenewModal(false);
+      reset();
+      alert(
+        `SUCCESS: Renewal applied to ${org.name}. Plan: ${newPlan.name}, Expiry: ${data.expiryDate}`
+      );
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to update subscription.";
+      setServerError(errorMessage);
+    }
+  };
+
+  const handleRevoke = async () => {
+    setIsRevoking(true);
+    setServerError(null);
+
+    try {
+      // Call API to revoke access
+      // await OrganizationService.revoke(org.id);
+
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      if (onUpdate) {
+        onUpdate({ ...org, status: "revoked" });
+      }
+
+      setShowRevokeConfirm(false);
+      alert(`ACCESS REVOKED: ${org.name} has been terminated.`);
+      onBack();
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to revoke access.";
+      setServerError(errorMessage);
+    } finally {
+      setIsRevoking(false);
+    }
+  };
+
+  const handleCloseRenewModal = () => {
     setShowRenewModal(false);
+    setServerError(null);
+    reset({
+      expiryDate: org.expiryDate || "2026-12-31",
+      planId: org.planId,
+    });
+  };
+
+  const handleCloseRevokeModal = () => {
     setShowRevokeConfirm(false);
+    setServerError(null);
   };
 
   return (
     <div className="space-y-6 md:space-y-8 animate-fade-in pb-24">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4 md:gap-6">
           <Button
@@ -141,6 +268,7 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
                   <button
                     onClick={() => setShowKey(!showKey)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 hover:text-white transition-colors p-1"
+                    type="button"
                   >
                     {showKey ? (
                       <svg
@@ -173,7 +301,7 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                         />
                       </svg>
                     )}
@@ -183,6 +311,7 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
                   variant="ghost"
                   onClick={handleCopy}
                   className="!p-3.5 md:!p-4 hover:bg-neutral-800 rounded-xl md:rounded-2xl transition-all border border-neutral-800"
+                  type="button"
                 >
                   {copied ? (
                     <svg
@@ -209,7 +338,33 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1"
+                        d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+                      />
+                    </svg>
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={handleRegenerateLicenseKey}
+                  disabled={isRegeneratingKey}
+                  className="!p-3.5 md:!p-4 hover:bg-neutral-800 rounded-xl md:rounded-2xl transition-all border border-neutral-800 disabled:opacity-50"
+                  type="button"
+                  title="Regenerate License Key"
+                >
+                  {isRegeneratingKey ? (
+                    <div className="w-4 h-4 border-2 border-neutral-600 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <svg
+                      className="w-4 h-4 text-neutral-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                       />
                     </svg>
                   )}
@@ -232,7 +387,7 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002-2z"
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                     />
                   </svg>
                 </div>
@@ -271,6 +426,7 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
               variant="ghost"
               onClick={() => setShowRenewModal(true)}
               className="!text-[9px] md:!text-[10px] font-bold text-secondary hover:text-white uppercase tracking-widest flex items-center justify-center gap-2 border border-secondary/10 hover:border-secondary/40 py-3 px-6 rounded-xl transition-all"
+              type="button"
             >
               Reconfigure Plan
               <svg
@@ -311,13 +467,6 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
               </span>
               Current Resource Utilization
             </h3>
-            <Button
-              variant="ghost"
-              onClick={() => setShowRenewModal(true)}
-              className="!text-[9px] md:!text-[10px] font-bold text-neutral-500 hover:text-white border border-neutral-800 px-5 md:px-6 py-2 md:py-3 rounded-xl transition-all"
-            >
-              Adjust Quotas
-            </Button>
           </div>
           <div className="grid md:grid-cols-3 gap-6 md:gap-8">
             <Progress
@@ -364,52 +513,58 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
           </div>
           <div className="p-6 md:p-10 space-y-10 md:space-y-12 relative">
             <div className="absolute left-[2.35rem] md:left-[3.35rem] top-10 bottom-10 w-px md:w-0.5 bg-neutral-800 pointer-events-none opacity-40"></div>
-            {orgLogs.map((log) => (
-              <div
-                key={log.id}
-                className="flex gap-6 md:gap-10 group relative z-10"
-              >
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-neutral-900 border-2 border-neutral-800 flex items-center justify-center text-primary shrink-0 transition-all shadow-xl group-hover:border-primary">
-                  <svg
-                    className="w-5 h-5 md:w-6 md:h-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M13 10V3L4 14h7v7l9-11h-7z"
-                    />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0 pb-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
-                    <p className="text-[13px] md:text-sm font-bold text-white uppercase tracking-tight">
-                      {log.action}
-                    </p>
-                    <span className="text-[8px] md:text-[9px] text-neutral-600 font-mono font-bold bg-neutral-950 px-2.5 py-0.5 rounded-full border border-neutral-900 self-start">
-                      {log.timestamp}
-                    </span>
+            {orgLogs.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-neutral-500 text-sm">No audit logs found.</p>
+              </div>
+            ) : (
+              orgLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex gap-6 md:gap-10 group relative z-10"
+                >
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-neutral-900 border-2 border-neutral-800 flex items-center justify-center text-primary shrink-0 transition-all shadow-xl group-hover:border-primary">
+                    <svg
+                      className="w-5 h-5 md:w-6 md:h-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
                   </div>
-                  <div className="p-4 md:p-5 bg-neutral-950/50 rounded-xl md:rounded-2xl border border-neutral-900 group-hover:border-neutral-800 transition-all">
-                    <p className="text-[11px] md:text-[12px] text-neutral-400 leading-relaxed italic truncate sm:whitespace-normal">
-                      {log.details}
-                    </p>
-                    <div className="mt-3 md:mt-4 flex items-center gap-2">
-                      <div className="w-5 h-5 md:w-6 md:h-6 rounded-lg bg-neutral-900 flex items-center justify-center text-[8px] md:text-[9px] font-bold text-neutral-500 border border-neutral-800 shrink-0">
-                        {log.actor[0]}
-                      </div>
-                      <span className="text-[8px] md:text-[9px] font-bold text-neutral-600 uppercase tracking-widest">
-                        Actor:{" "}
-                        <span className="text-neutral-400">{log.actor}</span>
+                  <div className="flex-1 min-w-0 pb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
+                      <p className="text-[13px] md:text-sm font-bold text-white uppercase tracking-tight">
+                        {log.action}
+                      </p>
+                      <span className="text-[8px] md:text-[9px] text-neutral-600 font-mono font-bold bg-neutral-950 px-2.5 py-0.5 rounded-full border border-neutral-900 self-start">
+                        {log.timestamp}
                       </span>
+                    </div>
+                    <div className="p-4 md:p-5 bg-neutral-950/50 rounded-xl md:rounded-2xl border border-neutral-900 group-hover:border-neutral-800 transition-all">
+                      <p className="text-[11px] md:text-[12px] text-neutral-400 leading-relaxed italic truncate sm:whitespace-normal">
+                        {log.details}
+                      </p>
+                      <div className="mt-3 md:mt-4 flex items-center gap-2">
+                        <div className="w-5 h-5 md:w-6 md:h-6 rounded-lg bg-neutral-900 flex items-center justify-center text-[8px] md:text-[9px] font-bold text-neutral-500 border border-neutral-800 shrink-0">
+                          {log.actor[0]}
+                        </div>
+                        <span className="text-[8px] md:text-[9px] font-bold text-neutral-600 uppercase tracking-widest">
+                          Actor:{" "}
+                          <span className="text-neutral-400">{log.actor}</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </Card>
       </div>
@@ -417,27 +572,60 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
       {/* RENEW / EXTEND MODAL */}
       <Modal
         isOpen={showRenewModal}
-        onClose={() => setShowRenewModal(false)}
+        onClose={handleCloseRenewModal}
         title="Subscription Cycle Management"
         footer={
           <>
             <Button
               variant="ghost"
-              onClick={() => setShowRenewModal(false)}
+              onClick={handleCloseRenewModal}
               className="uppercase font-bold text-[10px] tracking-widest px-6"
+              type="button"
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
             <Button
-              onClick={() => performAction("Renewal / Plan Update")}
-              className="uppercase font-bold text-[10px] tracking-widest px-10 !py-4 rounded-xl shadow-xl shadow-primary/20"
+              onClick={handleSubmit(onRenewalSubmit)}
+              className="uppercase font-bold text-[10px] tracking-widest px-10 !py-4 rounded-xl shadow-xl shadow-primary/20 disabled:opacity-50"
+              disabled={isSubmitting}
+              type="button"
             >
-              Commit Changes
+              {isSubmitting ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  Processing...
+                </div>
+              ) : (
+                "Commit Changes"
+              )}
             </Button>
           </>
         }
       >
         <div className="space-y-10 max-w-4xl mx-auto pb-6">
+          {/* Server Error */}
+          {serverError && (
+            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+              <div className="flex items-center gap-3">
+                <svg
+                  className="w-5 h-5 text-red-500 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span className="text-sm text-red-400">{serverError}</span>
+              </div>
+            </div>
+          )}
+
           <div className="grid md:grid-cols-2 gap-10">
             {/* Input Column */}
             <div className="space-y-8">
@@ -448,12 +636,35 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
                     Lifecycle Term
                   </h4>
                 </div>
-                <Input
-                  label="New Expiry Date"
-                  type="date"
-                  value={renewDate}
-                  onChange={(e) => setRenewDate(e.target.value)}
-                  className="!bg-neutral-950/40"
+                <Controller
+                  name="expiryDate"
+                  control={control}
+                  rules={{
+                    required: "Expiry date is required",
+                    validate: (value) => {
+                      const selectedDate = new Date(value);
+                      const today = new Date();
+                      return (
+                        selectedDate > today ||
+                        "Expiry date must be in the future"
+                      );
+                    },
+                  }}
+                  render={({ field }) => (
+                    <div>
+                      <Input
+                        label="New Expiry Date"
+                        type="date"
+                        {...field}
+                        className="!bg-neutral-950/40"
+                      />
+                      {errors.expiryDate && (
+                        <p className="mt-2 text-xs text-red-400">
+                          {errors.expiryDate.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 />
               </section>
 
@@ -464,56 +675,44 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
                     SLA Profile
                   </h4>
                 </div>
-                <div className="grid grid-cols-1 gap-3">
-                  {PLANS.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => setSelectedPlanId(p.id)}
-                      className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
-                        selectedPlanId === p.id
-                          ? "bg-primary/5 border-primary text-white shadow-lg shadow-primary/5"
-                          : "bg-neutral-950/20 border-neutral-800 text-neutral-500 hover:border-neutral-700"
-                      }`}
-                    >
-                      <div className="flex flex-col text-left">
-                        <span className="text-xs font-bold uppercase tracking-tight">
-                          {p.name}
-                        </span>
-                        <span className="text-[9px] font-mono text-neutral-600">
-                          SLA_{p.id.toUpperCase()}
-                        </span>
-                      </div>
-                      {selectedPlanId === p.id && (
-                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                <Controller
+                  name="planId"
+                  control={control}
+                  rules={{ required: "Please select a plan" }}
+                  render={({ field }) => (
+                    <div className="grid grid-cols-1 gap-3">
+                      {PLANS.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => field.onChange(p.id)}
+                          className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
+                            field.value === p.id
+                              ? "bg-primary/5 border-primary text-white shadow-lg shadow-primary/5"
+                              : "bg-neutral-950/20 border-neutral-800 text-neutral-500 hover:border-neutral-700"
+                          }`}
+                        >
+                          <div className="flex flex-col text-left">
+                            <span className="text-xs font-bold uppercase tracking-tight">
+                              {p.name}
+                            </span>
+                            <span className="text-[9px] font-mono text-neutral-600">
+                              SLA_{p.id.toUpperCase()}
+                            </span>
+                          </div>
+                          {field.value === p.id && (
+                            <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                          )}
+                        </button>
+                      ))}
+                      {errors.planId && (
+                        <p className="text-xs text-red-400">
+                          {errors.planId.message}
+                        </p>
                       )}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section className="space-y-4">
-                <div className="flex items-center gap-3 border-b border-neutral-800 pb-2">
-                  <div className="w-1 h-4 bg-process rounded-full"></div>
-                  <h4 className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest">
-                    Quota Overrides
-                  </h4>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label="Seat Limit"
-                    type="number"
-                    value={overrideSeats}
-                    onChange={(e) => setOverrideSeats(e.target.value)}
-                    className="!bg-neutral-950/40"
-                  />
-                  <Input
-                    label="Lab Limit"
-                    type="number"
-                    value={overrideLabs}
-                    onChange={(e) => setOverrideLabs(e.target.value)}
-                    className="!bg-neutral-950/40"
-                  />
-                </div>
+                    </div>
+                  )}
+                />
               </section>
             </div>
 
@@ -586,39 +785,23 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
                   {/* Resource Delta */}
                   <div className="space-y-4 pt-4 border-t border-neutral-900">
                     <p className="text-[9px] text-neutral-600 uppercase font-bold tracking-widest">
-                      Resource Delta
+                      Implicit Quota Update
                     </p>
                     <div className="grid gap-3">
                       <div className="flex justify-between items-center bg-neutral-900/40 p-3 rounded-xl border border-neutral-800/50">
                         <span className="text-[10px] font-bold text-neutral-500 uppercase">
                           Seats
                         </span>
-                        <span
-                          className={`text-[10px] font-bold ${
-                            Number(overrideSeats) > org.quotas.seats.total
-                              ? "text-success"
-                              : Number(overrideSeats) < org.quotas.seats.total
-                              ? "text-error"
-                              : "text-neutral-400"
-                          }`}
-                        >
-                          {org.quotas.seats.total} → {overrideSeats}
+                        <span className="text-[10px] font-bold text-white">
+                          {newPlan.defaultQuotas.seats} (Default)
                         </span>
                       </div>
                       <div className="flex justify-between items-center bg-neutral-900/40 p-3 rounded-xl border border-neutral-800/50">
                         <span className="text-[10px] font-bold text-neutral-500 uppercase">
                           Labs
                         </span>
-                        <span
-                          className={`text-[10px] font-bold ${
-                            Number(overrideLabs) > org.quotas.labs.total
-                              ? "text-secondary"
-                              : Number(overrideLabs) < org.quotas.labs.total
-                              ? "text-error"
-                              : "text-neutral-400"
-                          }`}
-                        >
-                          {org.quotas.labs.total} → {overrideLabs}
+                        <span className="text-[10px] font-bold text-white">
+                          {newPlan.defaultQuotas.labs} (Default)
                         </span>
                       </div>
                     </div>
@@ -657,10 +840,32 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
       {/* REVOKE CONFIRMATION */}
       <Modal
         isOpen={showRevokeConfirm}
-        onClose={() => setShowRevokeConfirm(false)}
+        onClose={handleCloseRevokeModal}
         title="Security Revocation"
       >
         <div className="text-center py-6 md:py-8">
+          {/* Server Error */}
+          {serverError && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-left">
+              <div className="flex items-center gap-3">
+                <svg
+                  className="w-5 h-5 text-red-500 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span className="text-sm text-red-400">{serverError}</span>
+              </div>
+            </div>
+          )}
+
           <div className="w-16 h-16 md:w-20 md:h-20 bg-error/10 rounded-2xl md:rounded-3xl flex items-center justify-center mx-auto mb-6 md:mb-8 text-error animate-pulse">
             <svg
               className="w-8 h-8 md:w-10 md:h-10"
@@ -687,17 +892,28 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({ org, onBack }) => {
           <div className="mt-8 md:mt-10 flex flex-col sm:flex-row gap-3 md:gap-4">
             <Button
               variant="ghost"
-              onClick={() => setShowRevokeConfirm(false)}
+              onClick={handleCloseRevokeModal}
               className="flex-1 rounded-xl uppercase font-bold text-[10px] md:text-[11px] py-4 border border-neutral-800"
+              type="button"
+              disabled={isRevoking}
             >
               Abort
             </Button>
             <Button
               variant="danger"
-              onClick={() => performAction("Revocation")}
-              className="flex-1 rounded-xl uppercase font-bold text-[10px] md:text-[11px] py-4 shadow-xl"
+              onClick={handleRevoke}
+              className="flex-1 rounded-xl uppercase font-bold text-[10px] md:text-[11px] py-4 shadow-xl disabled:opacity-50"
+              type="button"
+              disabled={isRevoking}
             >
-              Confirm
+              {isRevoking ? (
+                <div className="flex items-center justify-center gap-3">
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  Revoking...
+                </div>
+              ) : (
+                "Confirm"
+              )}
             </Button>
           </div>
         </div>

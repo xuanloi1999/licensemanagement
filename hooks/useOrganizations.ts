@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Organization } from "../types";
-import { licenseAPI } from "@/services/licenseAPI";
+import { licenseAPI } from "../services/licenseAPI";
 
 export function useOrganizations() {
   const [data, setData] = useState<Organization[] | null>(null);
