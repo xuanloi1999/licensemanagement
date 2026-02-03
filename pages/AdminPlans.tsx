@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Card, Badge, Button, Modal, Input } from "../components/UI";
-import { PLANS } from "../constants";
 import SubscriptionPlanService, {
   SubscriptionPlan,
   CreateSubscriptionPlanPayload,
@@ -182,11 +181,10 @@ export const AdminPlans: React.FC = () => {
     setModalError(null);
   };
 
-  // Merge API plans with default features for display
   const displayPlans =
     plans.length > 0
       ? plans.map((plan) => {
-          const fallbackPlan = PLANS.find(
+          const fallbackPlan = [].find(
             (p) => p.name.toLowerCase() === plan.name.toLowerCase()
           );
           return {
@@ -219,7 +217,7 @@ export const AdminPlans: React.FC = () => {
             },
           };
         })
-      : PLANS;
+      : [];
 
   // Loading state
   if (isLoading) {
