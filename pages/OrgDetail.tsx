@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Card, Button, Badge, Progress, Modal, Input } from "../components/UI";
 import { Organization, Plan } from "../types";
-import { PLANS, MOCK_LOGS } from "../constants";
 import OrganizationService from "../services/OrganizationService";
-import SubscriptionPlanService from "../services/SubscriptionPlanService";
+import SubscriptionPlanService, {
+  SubscriptionPlan,
+} from "../services/SubscriptionPlanService";
 
 interface OrgDetailProps {
   org: Organization;
@@ -29,9 +30,32 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({
   const [isRevoking, setIsRevoking] = useState(false);
   const [isRegeneratingKey, setIsRegeneratingKey] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const currentPlan = PLANS.find((p) => p.id === org.planId) || PLANS[0];
-  const orgLogs = MOCK_LOGS.filter((log) => log.targetOrg === org.name);
+  const fetchPlans = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await SubscriptionPlanService.list();
+      setPlans(response.data.data || []);
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to load subscription plans.";
+      setError(errorMessage);
+      console.error("Failed to fetch plans:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPlans();
+  }, [fetchPlans]);
 
   // React Hook Form for renewal modal
   const {
@@ -49,8 +73,9 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({
 
   const selectedPlanId = watch("planId");
   const renewDate = watch("expiryDate");
-  const newPlan = PLANS.find((p) => p.id === selectedPlanId) || currentPlan;
 
+  const currentPlan = plans.find((p) => p.name === org.planId) ?? null;
+  const newPlan = plans.find((p) => p.name === selectedPlanId) ?? currentPlan;
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(org.licenseKey);
@@ -167,6 +192,19 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({
     setShowRevokeConfirm(false);
     setServerError(null);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-neutral-800 border-t-primary rounded-full animate-spin mx-auto" />
+          <p className="text-neutral-500 text-sm font-medium">
+            Loading organizations...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 md:space-y-8 animate-fade-in pb-24">
@@ -403,7 +441,7 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({
             </div>
           </div>
 
-          <div className="mt-8 md:mt-12 flex flex-col md:flex-row md:items-center justify-between p-5 md:p-7 bg-neutral-900/30 rounded-2xl md:rounded-3xl border border-neutral-800 shadow-inner gap-6">
+          < className="mt-8 md:mt-12 flex flex-col md:flex-row md:items-center justify-between p-5 md:p-7 bg-neutral-900/30 rounded-2xl md:rounded-3xl border border-neutral-800 shadow-inner gap-6">
             <div className="flex flex-wrap gap-8 md:gap-12">
               <div className="min-w-[80px]">
                 <p className="text-[8px] text-neutral-600 font-bold uppercase tracking-widest mb-1">
@@ -422,7 +460,7 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({
                 </p>
               </div>
             </div>
-            <Button
+            {/* <Button
               variant="ghost"
               onClick={() => setShowRenewModal(true)}
               className="!text-[9px] md:!text-[10px] font-bold text-secondary hover:text-white uppercase tracking-widest flex items-center justify-center gap-2 border border-secondary/10 hover:border-secondary/40 py-3 px-6 rounded-xl transition-all"
@@ -442,8 +480,8 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-            </Button>
-          </div>
+            </Button> */}
+            My idol is CR7 @6361
         </Card>
 
         {/* Utilization Card */}
@@ -510,61 +548,6 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({
               </span>
               Administrative Ledger
             </h3>
-          </div>
-          <div className="p-6 md:p-10 space-y-10 md:space-y-12 relative">
-            <div className="absolute left-[2.35rem] md:left-[3.35rem] top-10 bottom-10 w-px md:w-0.5 bg-neutral-800 pointer-events-none opacity-40"></div>
-            {orgLogs.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-neutral-500 text-sm">No audit logs found.</p>
-              </div>
-            ) : (
-              orgLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className="flex gap-6 md:gap-10 group relative z-10"
-                >
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-neutral-900 border-2 border-neutral-800 flex items-center justify-center text-primary shrink-0 transition-all shadow-xl group-hover:border-primary">
-                    <svg
-                      className="w-5 h-5 md:w-6 md:h-6"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0 pb-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
-                      <p className="text-[13px] md:text-sm font-bold text-white uppercase tracking-tight">
-                        {log.action}
-                      </p>
-                      <span className="text-[8px] md:text-[9px] text-neutral-600 font-mono font-bold bg-neutral-950 px-2.5 py-0.5 rounded-full border border-neutral-900 self-start">
-                        {log.timestamp}
-                      </span>
-                    </div>
-                    <div className="p-4 md:p-5 bg-neutral-950/50 rounded-xl md:rounded-2xl border border-neutral-900 group-hover:border-neutral-800 transition-all">
-                      <p className="text-[11px] md:text-[12px] text-neutral-400 leading-relaxed italic truncate sm:whitespace-normal">
-                        {log.details}
-                      </p>
-                      <div className="mt-3 md:mt-4 flex items-center gap-2">
-                        <div className="w-5 h-5 md:w-6 md:h-6 rounded-lg bg-neutral-900 flex items-center justify-center text-[8px] md:text-[9px] font-bold text-neutral-500 border border-neutral-800 shrink-0">
-                          {log.actor[0]}
-                        </div>
-                        <span className="text-[8px] md:text-[9px] font-bold text-neutral-600 uppercase tracking-widest">
-                          Actor:{" "}
-                          <span className="text-neutral-400">{log.actor}</span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
           </div>
         </Card>
       </div>
@@ -681,11 +664,11 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({
                   rules={{ required: "Please select a plan" }}
                   render={({ field }) => (
                     <div className="grid grid-cols-1 gap-3">
-                      {PLANS.map((p) => (
+                      {plans.map((p) => (
                         <button
                           key={p.id}
                           type="button"
-                          onClick={() => field.onChange(p.id)}
+                          onClick={() => field.onChange(p.name)}
                           className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
                             field.value === p.id
                               ? "bg-primary/5 border-primary text-white shadow-lg shadow-primary/5"
@@ -694,13 +677,10 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({
                         >
                           <div className="flex flex-col text-left">
                             <span className="text-xs font-bold uppercase tracking-tight">
-                              {p.name}
-                            </span>
-                            <span className="text-[9px] font-mono text-neutral-600">
-                              SLA_{p.id.toUpperCase()}
+                              {p.name.toUpperCase()}
                             </span>
                           </div>
-                          {field.value === p.id && (
+                          {field.value === p.name && (
                             <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
                           )}
                         </button>
@@ -732,7 +712,7 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({
                       </p>
                       <div className="flex items-center gap-4">
                         <span className="text-xs font-bold text-neutral-400">
-                          {currentPlan.name}
+                          {currentPlan.name.toUpperCase()}
                         </span>
                         <svg
                           className="w-4 h-4 text-primary"
@@ -748,7 +728,7 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({
                           />
                         </svg>
                         <span className="text-xs font-bold text-white">
-                          {newPlan.name}
+                          {newPlan.name.toUpperCase()}
                         </span>
                       </div>
                     </div>
@@ -788,48 +768,21 @@ export const OrgDetail: React.FC<OrgDetailProps> = ({
                       Implicit Quota Update
                     </p>
                     <div className="grid gap-3">
-                      <div className="flex justify-between items-center bg-neutral-900/40 p-3 rounded-xl border border-neutral-800/50">
-                        <span className="text-[10px] font-bold text-neutral-500 uppercase">
-                          Seats
-                        </span>
-                        <span className="text-[10px] font-bold text-white">
-                          {newPlan.defaultQuotas.seats} (Default)
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center bg-neutral-900/40 p-3 rounded-xl border border-neutral-800/50">
-                        <span className="text-[10px] font-bold text-neutral-500 uppercase">
-                          Labs
-                        </span>
-                        <span className="text-[10px] font-bold text-white">
-                          {newPlan.defaultQuotas.labs} (Default)
-                        </span>
-                      </div>
+                      {Object.entries(newPlan.quota).map(([key, value]) => (
+                        <div
+                          key={key}
+                          className="flex justify-between items-center bg-neutral-900/40 p-3 rounded-xl border border-neutral-800/50"
+                        >
+                          <span className="text-[10px] font-bold text-neutral-500 uppercase">
+                            {key}
+                          </span>
+                          <span className="text-[10px] font-bold text-white">
+                            {value > 0 ? value : "Unlimited"}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-
-                  {/* Warning message if downgrade */}
-                  {newPlan.defaultQuotas.seats <
-                    currentPlan.defaultQuotas.seats && (
-                    <div className="p-4 bg-error/10 border border-error/20 rounded-xl flex items-start gap-3">
-                      <svg
-                        className="w-4 h-4 text-error shrink-0 mt-0.5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                        />
-                      </svg>
-                      <p className="text-[10px] text-error font-medium leading-relaxed uppercase">
-                        SLA Downgrade detected. Resource restrictions may apply
-                        upon commitment.
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

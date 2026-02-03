@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { Card, Input, Button, Badge, Modal } from "../components/UI";
-import { PLANS } from "../constants";
 import { LicenseStatus, Organization } from "../types";
 import OrganizationService, {
   CreateOrganizationPayload,
@@ -77,7 +76,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             concurrency: Math.ceil(p.quota.users / 5),
           },
         }))
-      : PLANS;
+      : [];
 
   const selectedPlan =
     availablePlans.find((p) => p.id === selectedPlanId) || availablePlans[0];
